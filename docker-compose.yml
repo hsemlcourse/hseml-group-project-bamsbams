@@ -1,0 +1,10 @@
+services:
+  project:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: hseml-pinn:latest
+    working_dir: /app
+    volumes:
+      - ./:/app
+    command: python3 -m src.data_parsing
