@@ -36,11 +36,21 @@ def plot_comparison(
     err = np.abs(fdm_field - pred_field)
     fig, axes = plt.subplots(1, 3, figsize=(14, 4), constrained_layout=True)
 
-    a0 = axes[0].imshow(fdm_field, origin="lower", cmap="inferno", aspect="auto")
+    a0 = axes[0].imshow(
+        fdm_field,
+        origin="lower",
+        cmap="inferno",
+        aspect="auto",
+    )
     axes[0].set_title("FDM (Ground Truth)")
     plt.colorbar(a0, ax=axes[0], fraction=0.046, pad=0.04)
 
-    a1 = axes[1].imshow(pred_field, origin="lower", cmap="inferno", aspect="auto")
+    a1 = axes[1].imshow(
+        pred_field,
+        origin="lower",
+        cmap="inferno",
+        aspect="auto",
+    )
     axes[1].set_title("Model Prediction")
     plt.colorbar(a1, ax=axes[1], fraction=0.046, pad=0.04)
 

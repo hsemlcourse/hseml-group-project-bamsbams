@@ -22,7 +22,10 @@ class MLP(nn.Module):
         super().__init__()
         activation = activation or nn.Tanh()
 
-        layers: List[nn.Module] = [nn.Linear(input_dim, hidden_dim), activation]
+        layers: List[nn.Module] = [
+            nn.Linear(input_dim, hidden_dim),
+            activation,
+        ]
         for _ in range(num_hidden_layers - 1):
             layers.extend([nn.Linear(hidden_dim, hidden_dim), activation])
         layers.append(nn.Linear(hidden_dim, output_dim))

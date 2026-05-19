@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 import json
-from typing import Dict
+from typing import Dict, Tuple
 
 import numpy as np
 from scipy.stats.qmc import LatinHypercube
@@ -23,16 +23,74 @@ class DomainConfig:
     t_hot: float = 60.0
 
 
-def normalize(values: np.ndarray, min_value: float, max_value: float) -> np.ndarray:
+def normalize(
+    values: np.ndarray,
+    min_value: float,
+    max_value: float,
+) -> np.ndarray:
     """Min-max normalization into [0, 1]."""
     values = np.asarray(values, dtype=np.float64)
     return (values - min_value) / (max_value - min_value)
 
 
-def denormalize(values: np.ndarray, min_value: float, max_value: float) -> np.ndarray:
+def denormalize(
+    values: np.ndarray,
+    min_value: float,
+    max_value: float,
+) -> np.ndarray:
     """Inverse min-max transform."""
     values = np.asarray(values, dtype=np.float64)
     return values * (max_value - min_value) + min_value
+
+
+def split_supervised_data(
+    inputs: np.ndarray,
+    targets: np.ndarray,
+    train_ratio: float = 0.7,
+    val_ratio: float = 0.15,
+    seed: int = 42,
+) -> Tuple[
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+]:
+    """Deterministic train/val/test split without leakage."""
+    if len(inputs) != len(targets):
+        raise ValueError(
+            "inputs and targets must have the same number of rows"
+        )
+    if (
+        not 0 < train_ratio < 1
+        or not 0 < val_ratio < 1
+        or train_ratio + val_ratio >= 1
+    ):
+        raise ValueError(
+            "train_ratio and val_ratio must be in (0, 1) and sum to < 1"
+        )
+
+    n_samples = len(inputs)
+    indices = np.arange(n_samples)
+    rng = np.random.default_rng(seed)
+    rng.shuffle(indices)
+
+    train_end = int(n_samples * train_ratio)
+    val_end = train_end + int(n_samples * val_ratio)
+
+    train_idx = indices[:train_end]
+    val_idx = indices[train_end:val_end]
+    test_idx = indices[val_end:]
+
+    return (
+        inputs[train_idx],
+        targets[train_idx],
+        inputs[val_idx],
+        targets[val_idx],
+        inputs[test_idx],
+        targets[test_idx],
+    )
 
 
 def sample_domain_points(
@@ -129,6 +187,7 @@ def build_processed_dataset(
     fdm_nx: int = 51,
     fdm_ny: int = 51,
     seed: int = 42,
+    cfg: DomainConfig | None = None,
 ) -> Path:
     """
     Create and save processed data:
@@ -137,13 +196,17 @@ def build_processed_dataset(
     - FDM ground truth field
     - normalization metadata
     """
-    cfg = DomainConfig()
+    cfg = cfg or DomainConfig()
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     collocation = sample_domain_points(n_collocation, cfg, seed=seed)
     initial = sample_initial_points(n_initial, cfg, seed=seed + 1)
-    boundaries = sample_boundary_points(n_boundary_per_side, cfg, seed=seed + 2)
+    boundaries = sample_boundary_points(
+        n_boundary_per_side,
+        cfg,
+        seed=seed + 2,
+    )
     fdm = solve_fdm_steady(nx=fdm_nx, ny=fdm_ny, cfg=cfg)
 
     x_grid = np.linspace(cfg.x_min, cfg.x_max, fdm_nx)
@@ -199,6 +262,7 @@ def build_processed_dataset(
     )
 
     meta = {
+        "domain_config": asdict(cfg),
         "normalization": {
             "x": [cfg.x_min, cfg.x_max],
             "y": [cfg.y_min, cfg.y_max],
@@ -211,6 +275,7 @@ def build_processed_dataset(
             "boundary_per_side": n_boundary_per_side,
         },
         "fdm_grid": {"nx": fdm_nx, "ny": fdm_ny},
+        "seed": seed,
     }
     (output_dir / "pinn_dataset_meta.json").write_text(
         json.dumps(meta, indent=2),
