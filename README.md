@@ -27,6 +27,12 @@
 │   ├── preprocessing.py          # Sampling, split, нормализация, FDM dataset
 │   ├── modeling.py               # MLP/PINN, функции потерь, train loop
 │   └── utils.py                  # Визуализация тепловых карт и лоссов
+├── fastapi
+│   ├── main.py                   # REST API для предсказания температуры
+│   └── Dockerfile                # Docker-образ для FastAPI сервиса
+├── streamlit
+│   ├── app.py                    # GUI для инференса PINN/MLP
+│   └── Dockerfile                # Docker-образ для Streamlit сервиса
 ├── Dockerfile
 ├── docker-compose.yml
 ├── Makefile
@@ -85,6 +91,42 @@ make docker-run
 docker compose run --rm project
 ```
 
+## FastAPI Service
+Сервис FastAPI поднимает HTTP API для инференса температуры в точке.
+
+Доступные ручки:
+- `GET /health`
+- `GET /meta`
+- `GET /predict/pinn?x=<float>&y=<float>&t=<float>`
+- `GET /predict/mlp?x=<float>&y=<float>`
+
+Особенности:
+- для PINN используется время `t`, как в Streamlit;
+- для MLP используется фиксированное `t=1.0`;
+- веса берутся автоматически из `models/pinn_main.pt` и `models/mlp_baseline.pt`.
+
+Запуск в Docker:
+```bash
+make docker-build-api
+make docker-run-api
+```
+
+После запуска сервис доступен на `http://localhost:8000`.
+
+## Streamlit Service
+Streamlit-приложение предоставляет GUI для:
+- точечного предсказания температуры;
+- построения температурной карты;
+- сравнения `t2 - t1` для PINN.
+
+Запуск в Docker:
+```bash
+make docker-build-streamlit
+make docker-run-streamlit
+```
+
+После запуска приложение доступно на `http://localhost:8501`.
+
 ## Experiments
 1. `notebooks/01_eda_and_fdm.ipynb` - генерация и проверка датасета
 2. `notebooks/02_baseline_mlp.ipynb` - supervised MLP baseline
@@ -92,3 +134,5 @@ docker compose run --rm project
 
 ## Report
 Основной отчет: `report/main.tex`
+
+Демонстрация работы проекта: `report/demonstration`
